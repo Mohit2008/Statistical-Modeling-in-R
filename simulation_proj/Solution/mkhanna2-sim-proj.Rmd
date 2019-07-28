@@ -1,0 +1,789 @@
+---
+title: "Week 6 - Simulation Project Solution"
+author: "Mohit Khanna"
+date: "17/06/2019"
+output:
+  html_document: 
+    toc: yes
+  pdf_document: default
+urlcolor: cyan
+---
+
+# Simulation Study 1, Significance of Regression
+
+```{r}
+birthday = 19930501
+set.seed(birthday)
+```
+
+<br>
+
+## Introduction
+We are provided to design a simulation in order to test the Significance of Regression. Within this simulation we are going to simulate 2 model:
+
+<br>
+ 
+ - ***The “significant” model:***
+
+<br>
+
+\[
+Y_i = \beta_0 + \beta_1 x_{i1} + \beta_2 x_{i2} + \beta_3 x_{i3} + \epsilon_i
+\]
+
+<br>
+
+Where $\epsilon_i \sim N(0, \sigma^2).$ Also, the parameters are known to be:
+
+- $\beta_0 = 3$
+- $\beta_1 = 1$
+- $\beta_2 = 1$
+- $\beta_3 = 1$
+
+ <br>
+ 
+For the following, we take a model into consideration which has 3 explanatory variable and 4 parameters(intercept+coefficients). With the given model, we are trying to build up a relationship between y and the 3 explanatory variable that we have in our system.
+
+<br>
+
+ - ***The “non-significant” model:***
+ 
+<br>
+
+\[
+Y_i = \beta_0 + \beta_1 x_{i1} + \beta_2 x_{i2} + \beta_3 x_{i3} + \epsilon_i
+\]
+
+<br>
+
+Where $\epsilon_i \sim N(0, \sigma^2).$ Also, the parameters are known to be:
+
+- $\beta_0 = 3$
+- $\beta_1 = 0$
+- $\beta_2 = 0$
+- $\beta_3 = 0$
+
+ <br>
+
+The following is a non significant model where we assume that all the model coefficient except for the intercept has 0 value which means that we have a null model where there is no relationship between y and the explanatory variable.
+
+<br>
+
+We are going to perform a simulation ***2500*** times and for each of the simulation we will be considering a ***sample size of 25***. On top of this we are going to run the entire ***simulation setup for 3 values of $\sigma$ which would be 1,5,10.***
+
+<br>
+
+During the above simulations we are first going to fit a linear model and  keep track of the following 3 variables:
+
+***- The F statistic for the significance of regression test***
+
+***- The p-value for the significance of regression test***
+
+***- R2***
+
+In order to perform the simulation we are going to make use of the data that is provided to us in ***"study_1.csv"***, which has all the 3 explanatory variables that are needed to build the model 1(Significant) and model 2(Non-Significant).
+
+<br>
+
+***Thus to summarize we have a simulation setup where we are going to build 2 models each, for every 2500 simulations and we are going to repeat this for all the 3 values of $\sigma$.***
+
+<br>
+
+## Methods
+
+<br>
+
+```{r}
+study1 <- read.csv(file="study_1.csv",header=TRUE, sep=",") # read in the data
+
+# function to simulate the creation of the dataframe with all the explanatory and target variable
+sim_slr = function(X, beta_0, beta_1, beta_2, beta_3,sigma) {
+  n = nrow(X)
+  epsilon = rnorm(n, mean = 0, sd = sigma)
+  y = beta_0 + beta_1 * X[,1] + beta_2 * X[,2]+ beta_3 * X[,3] + epsilon
+  return (data.frame(x1=X[,1],
+                     x2=X[,2],
+                     x3=X[,3],
+                     response=y))
+}
+
+
+full_f_score=rep(0, 2500) # record f score for significant model
+full_p_value=rep(0, 2500) # record p value for significant model
+full_r_square=rep(0, 2500) # record r square for significant model
+
+null_f_score=rep(0, 2500) # record f score for non significant model
+null_p_value=rep(0, 2500) # record p value for non significant model
+null_r_square=rep(0, 2500) # record r square for non significant model
+
+
+sigma=c(1,5,10) # vector of different noise level
+
+run_simulation <- function(sig){ 
+  # iterate through 2500 times
+  for (i in 1:2500){
+  
+    null_model_data= sim_slr(study1[-1], beta_0=3, beta_1=0, beta_2=0, beta_3=0,sigma=sig) # prepare the data for null model
+    null_model= lm(response ~ ., data = null_model_data) # create a null model 
+  
+    
+    full_model_data= sim_slr(study1[-1], beta_0=3, beta_1=1, beta_2=1, beta_3=1,sigma=sig) # prepare data for full model
+    full_model= lm(response ~ ., data = full_model_data) # create a full model
+  
+    # get values for full model
+    full_f_score[i]=summary(full_model)$fstatistic[[1]] # get the f score
+    full_p_value[i]=pf(summary(full_model)$fstatistic[1],summary(full_model)$fstatistic[2],summary(full_model)$fstatistic[3],lower.tail=FALSE) # get the p value
+    full_r_square[i]=summary(full_model)$r.squared[[1]] # get the r squared value
+    
+    # get values for null model
+    null_f_score[i]=summary(null_model)$fstatistic[[1]] # get the f score
+    null_p_value[i]= pf(summary(null_model)$fstatistic[1],summary(null_model)$fstatistic[2],summary(null_model)$fstatistic[3],lower.tail=FALSE)# get the p value
+    null_r_square[i]=summary(null_model)$r.squared[[1]] # get the r squared value
+  }
+  return (list(Full_Fscore=full_f_score, Full_PValue=full_p_value, Full_RSqr=full_r_square,
+                  Null_Fscore=null_f_score, Null_PValue=null_p_value, Null_RSqr=null_r_square)) #return the results for all the 6 variables accross a sigma value as a list
+}
+
+
+sigma_result_list=list() # track record of all 6 variables accross all 3 noise levels
+for (sig in sigma){
+  sigma_result_list=append(sigma_result_list,run_simulation(sig)) # append the results to the existing list
+}
+# now we have a list of 18 elemnets which contains 6 parameters for each of 3 noise level.
+```
+
+<br>
+
+## Results
+
+<br>
+
+***Lets looks at the distribution of Fscores, their true distribution and their variation based upon the noise level***
+
+<br>
+
+```{r}
+par(mfrow=c(1,3),oma = c(0, 0, 3, 0)) # generate a side by side plot 
+# get the fscores for the full model and create a side by side plot 
+
+
+hist(sigma_result_list[[1]], prob = TRUE, xlab ="F-score",
+      main = "Hist of Fscores for sigma=1", border = "black", col="yellow", xlim = c(0,150), ylim = c(0.0,0.8))
+curve(df(x, df1=3, df2=21),col = "orange", add = TRUE, lwd = 1.8, from=0, to=150) # true distibution
+
+hist(sigma_result_list[[7]], prob = TRUE, xlab ="F-score",
+      main = "Hist of Fscores for sigma=5", border = "black", col="dodgerblue", xlim=c(0,20), ylim = c(0.0,0.8))
+curve(df(x, df1=3, df2=21),col = "orange", add = TRUE, lwd = 1.8, from=0, to=20) # true distibution
+
+hist(sigma_result_list[[13]], prob = TRUE, xlab ="F-score",
+      main = "Hist of Fscores for sigma=10", border = "black", col="green", xlim=c(0,20), ylim = c(0.0,0.8))
+curve(df(x, df1=3, df2=21),col = "orange", add = TRUE, lwd = 1.8, from=0, to=20) # true distibution
+
+mtext("Fscores for significant model", outer = TRUE, cex = 1.2)
+
+
+par(mfrow=c(1,3),oma = c(0, 0, 3, 0)) # generate a side by side plot 
+# get the fscores for the null model and create a side by side plot 
+hist(sigma_result_list[[4]], prob = TRUE, xlab ="F-score",
+      main = "Hist of Fscores for sigma=1", border = "black", col="yellow", xlim = c(0,150), ylim = c(0.0,0.8))
+curve(df(x, df1=3, df2=21),col = "orange", add = TRUE, lwd = 1.8, from=0, to=150) # true distibution
+
+
+hist(sigma_result_list[[10]], prob = TRUE, xlab ="F-score",
+      main = "Hist of Fscores for sigma=5", border = "black", col="dodgerblue",xlim=c(0,20), ylim = c(0.0,0.8))
+curve(df(x, df1=3, df2=21),col = "orange", add = TRUE, lwd = 1.8, from=0, to=20) # true distibution
+
+hist(sigma_result_list[[16]], prob = TRUE, xlab ="F-score",
+      main = "Hist of Fscores for sigma=10", border = "black", col="green",xlim=c(0,20), ylim = c(0.0,0.8))
+curve(df(x, df1=3, df2=21),col = "orange", add = TRUE, lwd = 1.8, from=0, to=20) # true distibution
+
+mtext("Fscores for non-significant model", outer = TRUE, cex = 1.2)
+```
+
+
+***
+
+<br>
+
+***Lets looks at the distribution of P values, their true distribution and their variation based upon the noise level***
+
+<br>
+
+```{r}
+par(mfrow=c(1,3),oma = c(0, 0, 3, 0)) # generate a side by side plot
+x=seq(0.0,1.0,length=200)
+y=dunif(x)
+
+# get the p values for the full model and create a side by side plot 
+hist(sigma_result_list[[2]], prob = TRUE, xlab ="P-Value",
+      main = "Hist of p values for sigma=1", border = "black", col="yellow")
+lines(x,y,type="l",lwd=2,col="red") # true distibution
+
+
+hist(sigma_result_list[[8]], prob = TRUE, xlab ="P-Value",
+      main = "Hist of p values for sigma=5", border = "black", col="dodgerblue")
+lines(x,y,type="l",lwd=2,col="red") # true distibution
+
+
+hist(sigma_result_list[[14]], prob = TRUE, xlab ="P-Value",
+      main = "Hist of p values for sigma=10", border = "black", col="orange")
+lines(x,y,type="l",lwd=2,col="red") # true distibution
+
+mtext("P values for significant model", outer = TRUE, cex = 1.2)
+
+
+par(mfrow=c(1,3),oma = c(0, 0, 3, 0)) # generate a side by side plot 
+# get the p values for the null model and create a side by side plot 
+hist(sigma_result_list[[5]], prob = TRUE, xlab ="P-Value",
+      main = "Hist of P values for sigma=1", border = "black", col="yellow")
+lines(x,y,type="l",lwd=2,col="red") # true distibution
+
+hist(sigma_result_list[[11]], prob = TRUE, xlab ="P-Value",
+      main = "Hist of P values for sigma=5", border = "black", col="dodgerblue")
+lines(x,y,type="l",lwd=2,col="red") # true distibution
+
+hist(sigma_result_list[[17]], prob = TRUE, xlab ="P-Value",
+      main = "Hist of P values for sigma=10", border = "black", col="orange")
+lines(x,y,type="l",lwd=2,col="red") # true distibution
+
+mtext("P values for non-significant model", outer = TRUE, cex = 1.2)
+```
+
+
+***
+
+<br>
+
+***Lets looks at the distribution of R-square,their true distribution and their variation based upon the noise level***
+
+<br>
+
+```{r}
+par(mfrow=c(1,3),oma = c(0, 0, 3, 0)) # generate a side by side plot 
+# get the r square for the full model and create a side by side plot 
+hist(sigma_result_list[[3]], prob = TRUE, xlab ="R-squared",
+      main = "Hist of R-square for sigma=1", border = "black", col="yellow",ylim=c(0.0,10.0), xlim=c(0.0,1.0))
+
+curve(dbeta(x, 3/2, 21/2), col="darkblue", lwd = 3, add = TRUE, yaxt = "n") # true distibution
+
+
+hist(sigma_result_list[[9]], prob = TRUE, xlab ="R-squared",
+      main = "Hist of R-square for sigma=5", border = "black", col="dodgerblue", ylim=c(0.0,10.0))
+
+curve(dbeta(x, 3/2, 21/2), col="darkblue", lwd = 3, add = TRUE, yaxt = "n") # true distibution
+
+
+hist(sigma_result_list[[15]], prob = TRUE, xlab ="R-squared",
+      main = "Hist of R-square for sigma=10", border = "black", col="orange",ylim=c(0.0,10.0))
+
+curve(dbeta(x, 3/2, 21/2), col="darkblue", lwd = 3, add = TRUE, yaxt = "n") # true distibution
+
+mtext("R-square for significant model", outer = TRUE, cex = 1.2)
+
+
+par(mfrow=c(1,3),oma = c(0, 0, 3, 0)) # generate a side by side plot 
+# get the r square for the null model and create a side by side plot 
+hist(sigma_result_list[[6]], prob = TRUE, xlab ="R-squared",
+      main = "Hist of R-square for sigma=1", border = "black", col="yellow",ylim=c(0.0,10.0))
+
+curve(dbeta(x, 3/2, 21/2), col="darkblue", lwd = 3, add = TRUE, yaxt = "n") # true distibution
+
+
+hist(sigma_result_list[[12]], prob = TRUE, xlab ="R-squared",
+      main = "Hist of R-square for sigma=5", border = "black", col="dodgerblue",ylim=c(0.0,10.0))
+
+curve(dbeta(x, 3/2, 21/2), col="darkblue", lwd = 3, add = TRUE, yaxt = "n") # true distibution
+
+
+hist(sigma_result_list[[18]], prob = TRUE, xlab ="R-squared",
+      main = "Hist of R-square for sigma=10", border = "black", col="orange",ylim=c(0.0,10.0))
+
+curve(dbeta(x, 3/2, 21/2), col="darkblue", lwd = 3, add = TRUE, yaxt = "n") # true distibution
+
+mtext("R-square for non-significant model", outer = TRUE, cex = 1.2)
+```
+
+<br>
+
+## Discussion
+
+<br>
+
+- Do we know the true distribution of any of these values?
+
+  * p-values follows a ***uniform distribution*** under the null hypothesis
+  * r-squared follows a ***beta distribution*** under the null hypothesis
+  * f-statistics follows a ***f distribution*** under the null hypothesis
+  
+<br>
+
+- How do the empirical distributions from the simulations compare to the true distributions?
+
+The empirical distributions looks similar for the non-significant model for all the 3 params(p-value, r-square, f-stats), and the same has been plotted in the above results. However for the significant model we see that as the level of noise increases the empirical distribution approaches the true distribution for all the 3 param which kinds of make sense since when the noise increases the predictive capability of the model decreases which will make the model to approach towards the non-significant state thereby archiving the similar distributions.
+
+<br>
+
+- How are R2 and $\sigma$ related? Is the relationship the same for the significant and non-significant models?
+ 
+ With low level of noise you get really high r-squared meaning the model has high predictive capability and is able to explain much of the variation in the target variable but as we increase the level of noise the r-square starts taking small values since the predictive capability of the model gets compromised and the model becomes less reliable.
+ 
+ However in case of non-significant model since the model does not have any predictive power its un-affected by noise and show low levels of r-squared following a beta distribution.
+
+
+- We should also make a point here that the p value which helps us determine the significance of regression sort of forms a uniform distribution for the non significant model thereby having the maximum entropy but also indicating that there are high chances of failing to reject the null hypothesis thereby helping us making right decision in most of the cases. However in case of significant model, we get pretty low values of p-value for low noise levels thereby indicating in helping to reject the null hypothesis in most of the case. As the noise level increases the predictive power of model decreases thereby allowing room for larger p values indicating that we will fail to reject the null hypothesis in some cases for high noise level.
+
+Similar is the case for F statistics.
+
+***Key-Takeaways*** - As the noise level increases the predictive power decreases thereby depicting a decrease in the F score, increase in the p values and decrease in the r-squared level for significant model and for non significant model, we constantly see low F score, high p values and low r-square value.
+
+<br>
+
+***
+
+# Simulation Study 2, Using RMSE for Selection?
+
+```{r}
+birthday = 19930501
+set.seed(birthday)
+```
+
+<br>
+
+## Introduction
+
+<br>
+
+In the following simulation , we are asked to study the use of rmse as a model selection criteria. The way that would work is that we are going to first build up a model on the training data and calculate its performance(rmse) on the testing data. We do this for multiple iterations(1000 in this case).
+
+Lets try to study the plan in detail. We have been provided with the following model from which we wish to simulate:
+
+<br>
+
+\[
+Y_i = \beta_0 + \beta_1 x_{i1} + \beta_2 x_{i2} + \beta_3 x_{i3} + \beta_4 x_{i4} + \beta_5 x_{i5} + \beta_6 x_{i6} + \epsilon_i
+\]
+
+<br>
+
+Where $\epsilon_i \sim N(0, \sigma^2).$ Also, the parameters are known to be:
+
+- $\beta_0 = 0$
+- $\beta_1 = 5$
+- $\beta_2 = -4$
+- $\beta_3 = 1.6$
+- $\beta_4 = -1.1$
+- $\beta_5 = 0.7$
+- $\beta_6 = 0.3$
+
+We plan to use a sample size of 500 and we would like to experiment with 3 value of $\sigma$ which is 1,2 and 4. The data we are going to use in the simulation comes from the "study_2.csv" file provided to us.
+
+With the above data we are going to split it into train and test set. We plan to build a model on the training set and test it on the test set. Each of the train and the test set will carry 250 values each.
+
+Within each simulation we are going to build 9 models, record the train and test rmse for each of the 9 model. We will repeat the same simulation setup for each value of $\sigma$.
+
+<br>
+
+## Methods
+
+<br>
+
+```{r, message=FALSE}
+library("ggplot2")
+study2 <- read.csv(file="study_2.csv",header=TRUE, sep=",") # read in the data
+
+# function to calculate the rmse using the residuals.
+calculate_rmse <- function(resid){
+  rmse= sqrt(sum(resid^2)/ length(resid))
+  return (rmse)
+}
+
+
+# function to simulate the creation of the dataframe with all the explanatory and target variable
+sim_slr = function(X, beta_0, beta_1, beta_2, beta_3, beta_4, beta_5, beta_6,sigma) {
+  n = nrow(X) # get no of observations
+  epsilon = rnorm(n, mean = 0, sd = sigma) # generate random error
+  y = beta_0 + beta_1 * X[,1] + beta_2 * X[,2]+ beta_3 * X[,3] +
+    beta_4 * X[,4]+ beta_5 * X[,5]+ beta_6 * X[,6]+ 
+    epsilon # generate the target variable
+  
+  return (data.frame(x1=X[,1],x2=X[,2],x3=X[,3],x4=X[,4],
+                     x5=X[,5],x6=X[,6],x7=X[,7],x8=X[,8],
+                     x9=X[,9],response=y)) # retrn a dataframe will all the 9 variables and the target value.
+}
+
+# function to perfrom the simulation for a given level of noise.
+run_simulation <- function(sigma_val, plot_main){
+  # placeholders to to store the train and test rmse for each of the 9 model.
+  mod1_train_rmse=rep(0,1000)
+  mod1_test_rmse=rep(0,1000)
+  mod2_train_rmse=rep(0,1000)
+  mod2_test_rmse=rep(0,1000)
+  mod3_train_rmse=rep(0,1000)
+  mod3_test_rmse=rep(0,1000)
+  mod4_train_rmse=rep(0,1000)
+  mod4_test_rmse=rep(0,1000)
+  mod5_train_rmse=rep(0,1000)
+  mod5_test_rmse=rep(0,1000)
+  mod6_train_rmse=rep(0,1000)
+  mod6_test_rmse=rep(0,1000)
+  mod7_train_rmse=rep(0,1000)
+  mod7_test_rmse=rep(0,1000)
+  mod8_train_rmse=rep(0,1000)
+  mod8_test_rmse=rep(0,1000)
+  mod9_train_rmse=rep(0,1000)
+  mod9_test_rmse=rep(0,1000)
+  
+  model_selected_tracker=rep(0,1000) # placeholder to store the model selected 
+  # iterate form 1000 times
+  for (i in 1:1000){
+    sim_data= sim_slr(study2[-1], beta_0=0, beta_1=5, beta_2=-4, beta_3=1.6, beta_4=-1.1, beta_5=0.7, beta_6=0.3,sigma=sigma_val) # get the dataframe 
+    trn_idx = sample(1:nrow(sim_data), 250) # get some random index 
+    sim_trn= sim_data[trn_idx, ] # use the index to generate train data
+    sim_tst= sim_data[-trn_idx, ] # use the index to generate test data
+    
+    model1=lm(response ~ x1, data = sim_trn) # setup the model
+    mod1_train_rmse[i]=calculate_rmse(sim_trn$response-predict(model1, newdata=sim_trn)) # store train rmse
+    mod1_test_rmse[i]=calculate_rmse(sim_tst$response-predict(model1, newdata=sim_tst)) # store test rmse 
+    
+    model2=lm(response ~ x1+x2, data = sim_trn) # setup the model
+    mod2_train_rmse[i]=calculate_rmse(sim_trn$response-predict(model2, newdata=sim_trn)) # store train rmse
+    mod2_test_rmse[i]=calculate_rmse(sim_tst$response-predict(model2, newdata=sim_tst)) # store test rmse 
+    
+    model3=lm(response ~ x1+x2+x3, data = sim_trn) # setup the model
+    mod3_train_rmse[i]=calculate_rmse(sim_trn$response-predict(model3, newdata=sim_trn)) # store train rmse
+    mod3_test_rmse[i]=calculate_rmse(sim_tst$response-predict(model3, newdata=sim_tst)) # store test rmse 
+    
+    model4=lm(response ~ x1+x2+x3+x4, data = sim_trn) # setup the model
+    mod4_train_rmse[i]=calculate_rmse(sim_trn$response-predict(model4, newdata=sim_trn)) # store train rmse
+    mod4_test_rmse[i]=calculate_rmse(sim_tst$response-predict(model4, newdata=sim_tst)) # store test rmse 
+    
+    model5=lm(response ~ x1+x2+x3+x4+x5, data = sim_trn) # setup the model
+    mod5_train_rmse[i]=calculate_rmse(sim_trn$response-predict(model5, newdata=sim_trn)) # store train rmse
+    mod5_test_rmse[i]=calculate_rmse(sim_tst$response-predict(model5, newdata=sim_tst)) # store test rmse 
+    
+    model6=lm(response ~ x1+x2+x3+x4+x5+x6, data = sim_trn) # setup the model
+    mod6_train_rmse[i]=calculate_rmse(sim_trn$response-predict(model6, newdata=sim_trn)) # store train rmse
+    mod6_test_rmse[i]=calculate_rmse(sim_tst$response-predict(model6, newdata=sim_tst)) # store test rmse 
+    
+    model7=lm(response ~ x1+x2+x3+x4+x5+x6+x7, data = sim_trn) # setup the model
+    mod7_train_rmse[i]=calculate_rmse(sim_trn$response-predict(model7, newdata=sim_trn)) # store train rmse
+    mod7_test_rmse[i]=calculate_rmse(sim_tst$response-predict(model7, newdata=sim_tst)) # store test rmse 
+    
+    model8=lm(response ~ x1+x2+x3+x4+x5+x6+x7+x8, data = sim_trn) # setup the model
+    mod8_train_rmse[i]=calculate_rmse(sim_trn$response-predict(model8, newdata=sim_trn)) # store train rmse
+    mod8_test_rmse[i]=calculate_rmse(sim_tst$response-predict(model8, newdata=sim_tst)) # store test rmse 
+    
+    model9=lm(response ~ x1+x2+x3+x4+x5+x6+x7+x8+x9, data = sim_trn) # setup the model
+    mod9_train_rmse[i]=calculate_rmse(sim_trn$response-predict(model9, newdata=sim_trn)) # store train rmse
+    mod9_test_rmse[i]=calculate_rmse(sim_tst$response-predict(model9, newdata=sim_tst)) # store test rmse 
+   
+    test_rmse_vector=c(mod1_test_rmse[i],mod2_test_rmse[i],mod3_test_rmse[i],mod4_test_rmse[i],
+                   mod5_test_rmse[i],mod6_test_rmse[i],mod7_test_rmse[i],mod8_test_rmse[i],
+                   mod9_test_rmse[i]) # record all the test rmse in one vector
+    
+    model_selected_tracker[i]=which.min(test_rmse_vector) # get the index of the least test rmse
+  } 
+                   
+  avg_trnr_rmse= c(mean(mod1_train_rmse),mean(mod2_train_rmse),mean(mod3_train_rmse),mean(mod4_train_rmse),
+                   mean(mod5_train_rmse),mean(mod6_train_rmse),mean(mod7_train_rmse),mean(mod8_train_rmse),
+                   mean(mod9_train_rmse)) # store the mean train rmse for every model constructed in simulation
+  
+  avg_test_rmse= c(mean(mod1_test_rmse),mean(mod2_test_rmse),mean(mod3_test_rmse),mean(mod4_test_rmse),
+                   mean(mod5_test_rmse),mean(mod6_test_rmse),mean(mod7_test_rmse),mean(mod8_test_rmse),
+                   mean(mod9_test_rmse)) # store the mean test rmse for every model constructed in simulation
+  
+  model_size=1:9 # intiatlize a vector for model size
+  
+  # generate the plot showing effect of model size on the train and test rmse
+  plot(model_size, avg_trnr_rmse,col="darkorange",
+       xlab="Model Size",
+       ylab="RMSE",
+       main=plot_main,
+       pch=20,
+       cex=5,type="l", ylim = c(1.0, 6.0)) 
+  
+  points(model_size, avg_trnr_rmse,pch=20,cex=2, col="darkorange") # show the points on chart for the train rmse
+  lines(model_size, avg_test_rmse, col="dodgerblue", cex=5, pch=20) # plot a line on the chart
+  
+  points(model_size, avg_test_rmse,pch=20,cex=2, col="dodgerblue")
+  legend("topright", c("Train Rmse", "Test Rmse"), lty = c(1, 1), lwd = 2,
+         col = c("darkorange", "dodgerblue")) # add the legend
+  
+  # generate the plot to show the frequency of the model that was selected
+  barplot(table(model_selected_tracker), main="Model selected class distribution", 
+   xlab="Model size", ylab="No of times a model was selected", col="darkorange")
+  
+}
+
+```
+
+<br>
+
+## Results
+
+<br>
+
+After running the simulation above following are the results that we generated.
+
+1. For noise level 1 the results are:
+```{r}
+run_simulation(sigma_val = 1, "Model size vs Rmse for noise level=1")
+```
+
+<br>
+
+2. For noise level 2 the results are:
+```{r}
+run_simulation(sigma_val = 2,"Model size vs Rmse for noise level=2")
+```
+
+<br>
+
+3. For noise level 4 the results are:
+```{r}
+run_simulation(sigma_val = 4,"Model size vs Rmse for noise level=4")
+```
+
+<br>
+
+
+## Discussion
+
+<br>
+
+- Does the method always select the correct model? On average, does it select the correct model?
+
+So we know from before that the correct model is the one with 6 variables. When we run the simulation we see that not every time the model 6 is being selected , but overall the counts across all the simulations for the model 6 is high. Now this thing is also affected by the fact that you have difference noise level. When you have a small noise, the rmse served a really good metric for model selection and stood out in the entirety , but as we increases the noise level the metric really started becoming ambiguous and if you see the plot for noise level 4 , model 3 and model 6 counts are really close , thereby inferring that for large levels of noise rmse might not be the go to metric however for small error it does a pretty decent job.
+
+<br>
+
+- How does the level of noise affect the results?
+
+For each of the 3 level of noise the train and test rmse are close which is sort of a good thing as it gives an indication that the model is not over fitting. But whats worth to note here is that as we increase the level of noise the rmse on an average increases for both train and test, which makes sense given the fact that all we are trying to model is the signal portion ,noise is something which we cannot model and if we have a dataset with a lot of noise , that would definitely reduce the predictive capability of a model.
+
+<br>
+
+- Whats even worth noticing is that for both train and test rmse the line flattens after we bring 3 or more variables into the model and this is consistently seen across all the 3 level of noise indicating a potential discussion where we might want to check the significance of the variables that we have in our model.
+
+
+***Key-Takeaways*** - Rmse serves are a good criteria for model selection when we have low noise level, as we increase the noise level the predictive power of the model goes down thereby rmse starts to give ambiguous results. Rmse increases for both train and test as we increase the noise levels.
+
+
+<br>
+
+***
+
+# Simulation Study 3, Power
+```{r}
+birthday = 19930501
+set.seed(birthday)
+```
+
+<br>
+
+## Introduction
+
+<br>
+
+In this simulation we are going to investigate the power of significance of regression test for SLR. To give you a brief understanding the "Power of the significance of regression test" is the probability of rejecting the null hypothesis when the null is not true, that is, the alternative is true and $\beta_1$ is non-zero. Essentially, power is the probability that a signal of a particular strength will be detected. The power of a test is affected by multiple things such as :
+
+* Sample Size, n
+* Signal Strength, $\beta_1$
+* Noise Level, $\sigma$
+* Significance Level, $\alpha$
+
+In this setup we will be generating data from the following model:
+
+<br>
+
+\[
+Y_i = \beta_0 + \beta_1 x_{i1} + \epsilon_i
+\]
+
+<br>
+
+Where $\epsilon_i \sim N(0, \sigma^2)$ . We will keep the $\beta_0=0$. We will then consider different signals, noises, and sample sizes as following:
+
+$\beta_1=(-2,-1.9,-1.8,.....,1.9,2)$
+
+$\sigma=(1,2,4)$
+
+$n=(10,20,30)$
+
+The significance level would we would be considering here is 0.05
+
+We are going to run the simulation 1000 times for each $\beta_1$, $\sigma$ and $n$ combination.
+
+<br>
+
+## Methods
+
+<br>
+
+```{r}
+beta_1_vec = seq(-2, 2, by = 0.1) # create a vector for all beta1 values
+
+# function to simulate the creation of the dataframe with all the explanatory and target variable
+sim_slr = function(x, beta_0, beta_1, sigma) {
+  n = length(x)
+  epsilon = rnorm(n, mean = 0, sd = sigma)
+  y = beta_0 + beta_1 * x + epsilon
+  data.frame(predictor = x, response = y)
+}
+
+# function to take in a value of sigma and sample size and calculate power by simulating 1000 times
+run_linear_model <- function(beta1, sigma, n){
+  x_values = seq(0, 5, length = n) # generate the x values
+  hit_counter=0 # counter to keep track of power
+  for (i in 1:1000){
+    sim_data = sim_slr(x = x_values, beta_0 = 0, beta_1 =beta1 , sigma = sigma) # get full data frame
+    sim_fit = lm(response ~ predictor, data = sim_data) # fit the model
+    # check the condition and increment the counter if we are able to reject the null hypothesis
+    if (summary(sim_fit)$coefficients[2, "Pr(>|t|)"] < 0.05){
+          hit_counter=hit_counter+1
+        }
+  }
+  return (hit_counter/1000) # return the power
+}
+
+sigma_level=c(1,2,4) # vector of different noise level
+
+# function to get the power for every sigma and beta1 combination
+record_power_vals <-function(sam_size){
+  power_values=matrix(0, nrow = 3, ncol = length(beta_1_vec)) # create a matrix to store all power
+  for (sig in sigma_level){
+    row_index= which(sigma_level==sig) # get row index
+    for (b1 in beta_1_vec){
+        col_index= which(beta_1_vec==b1) # get column index
+        power_values[row_index, col_index]=run_linear_model(beta1 = b1, sigma=sig, n=sam_size) # record the power in specific cell
+      }
+  }
+  return (power_values) # return the matrix
+}
+
+power_result_sam_size_10=record_power_vals(10) # generate power matrix for sample size 10
+power_result_sam_size_20=record_power_vals(20) # generate power matrix for sample size 20
+power_result_sam_size_30=record_power_vals(30) # generate power matrix for sample size 30
+
+# function to create a plot for a given sigma level
+create_plot <- function(sigma_val){
+  sigma_index= which(sigma_level==sigma_val)
+  plot(beta_1_vec,seq(from=0.0,to=1.0, length=length(beta_1_vec)), xlim = range(beta_1_vec), ylab = "Power", type="n",xlab = expression(beta)[1], main= expression(paste("Power Vs Signal Strength"))) # create a plot 
+
+# add lines for different sample size
+lines(beta_1_vec,power_result_sam_size_10[sigma_index,], type = "b", lty=3, col="green")
+lines(beta_1_vec,power_result_sam_size_20[sigma_index,], type = "b", lty=2, col="blue")
+lines(beta_1_vec,power_result_sam_size_30[sigma_index,], type = "b", lty=1, col="darkorange")
+legend("bottomright",title="Sample Size",lty=c(3, 2, 1), legend = c("sample_size = 10","sample_size = 20","sample_size = 30"), col=c("green","blue","darkorange")) # add legend
+}
+
+```
+
+<br>
+
+## Results
+
+<br>
+
+***Lets have a look at the power curves for $\sigma=1$***
+
+<br>
+
+```{r}
+create_plot(1)
+```
+
+<br>
+
+***Lets have a look at the power curves for $\sigma=2$***
+
+<br>
+
+```{r}
+create_plot(2)
+```
+
+<br>
+
+***Lets have a look at the power curves for $\sigma=4$***
+
+<br>
+
+```{r}
+create_plot(4)
+```
+
+<br>
+
+## Discussion
+
+<br>
+
+- How do n, $\beta_1$ and $\sigma$ affect power? Consider additional plots to demonstrate these effects.
+  
+  We can clearly see a pattern from the above plots that as we increase the level of noise the power of the model starts to decrease, this can be understood from the fact that when the noise increases the predictive capability of the model decreases , causing the test to incorrectly fail to reject the null hypothesis, thereby decreasing the power. 
+  
+  For the beta_1 we can see when we have values which are bigger or smaller than 0 then we have a high levels of power which makes sense since as the beta_1 starts approaching close to 0, the test would fail to reject the null hypothesis, thereby decreasing the power.
+
+
+<br>
+
+***Lets first study the effect of sample size on the power***
+
+<br>
+
+```{r}
+boxplot((power_result_sam_size_10[1,] +power_result_sam_size_10[2,]+ power_result_sam_size_10[3,])/3,
+      (power_result_sam_size_20[1,]+power_result_sam_size_20[2,]+power_result_sam_size_20[3,])/3,
+      (power_result_sam_size_30[1,]+power_result_sam_size_30[2,]+power_result_sam_size_30[3,])/3,
+      col="orange",names=c(10,20,30), ylab="Power", xlab="Sample sizes", 
+      main="Effect of sample size on the power")
+```
+
+<br>
+
+In the above plot you can easily see that for large sample size we have powers that take up relatively large values and show less variation , so as we increase the sample size we can generally expect high powers.
+
+<br>
+
+***Lets now study the effect of noise level on the power***
+
+<br>
+
+```{r}
+boxplot((power_result_sam_size_30[1,]+power_result_sam_size_20[1,]+power_result_sam_size_10[1,])/3,
+        (power_result_sam_size_10[2,]+power_result_sam_size_20[2,]+power_result_sam_size_30[2,])/3,
+        (power_result_sam_size_10[3,]+power_result_sam_size_20[3,]+power_result_sam_size_30[3,])/3,
+        col="orange",names=c(1,2,4), ylab="Power", xlab="Sigma", 
+        main="Effect of noise level on the power")
+```
+
+In the above plot you can easily see that for large noise levels we have powers that take up relatively low values and show large variation , so as we increase the noise level we can generally expect low powers, since the predictive capability of the model gets compromised.
+
+<br>
+
+***Lets now study the effect of $\beta_1$ on the power***
+
+<br>
+
+```{r}
+plot(beta_1_vec,(power_result_sam_size_10[1,]+power_result_sam_size_20[1,]+power_result_sam_size_30[1,])/3, ylab = "Power",xlab = expression(beta)[1], main= "Effect of beta_1 on the power", col="darkblue") # scatter plot
+```
+
+<br>
+
+In the above plot you can easily see that as the value of $\beta_1$ approaches 0 the power of the model starts to decrease , since when that happens the predictive capability of the model decreases and the model does not pass the test. Hence as $\beta_1$ approaches away from 0 the power tends to increase and vice versa.
+
+<br>
+
+- Are 1000 simulations sufficient?
+
+Well according to me 1000 isn't sufficient given the fact that the model will make a error $\alpha$ times which is 5% so, we can consider increasing this number and running simulation for a larger iterations, to have much better results.
+
+<br>
+
+***Key-Takeaways*** - As the sample size increases the power increases and the result show less variation, as the noise increases the predictive power of model decreases and thus power decreases, as beta_1 hold significant value we have high power.
+
+
+***
+<br>
